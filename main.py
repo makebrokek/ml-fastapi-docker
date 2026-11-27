@@ -26,6 +26,7 @@ class IrisFeatures(BaseModel):
 class PredictionResponse(BaseModel):
     class_id: int
     class_name: str
+    probabilities: dict[str, float]
 
 
 @app.get("/")
@@ -52,7 +53,13 @@ def predict(features: IrisFeatures):
     ]]
 
     pred_id = int(model.predict(input_data)[0])
+    probs = model.predict_proba(input_data)[0]
+    probabilities = {
+        name: round(float(prob), 4)
+        for name, prob in zip(target_names, probs)
+    }
     return PredictionResponse(
         class_id=pred_id,
         class_name=target_names[pred_id],
+        probabilities=probabilities,
     )

@@ -1,0 +1,58 @@
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    container_name: mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlflow_data:/mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --serve-artifacts
+      --artifacts-destination /mlflow/artifacts
+      --default-artifact-root mlflow-artifacts:/
+    restart: unless-stopped
+
+  train:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iris-train
+    command: ["python", "train.py"]
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - .:/app
+    depends_on:
+      - mlflow
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iris-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - mlflow
+    restart: unless-stopped
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: iris-streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000/predict
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - api
+      - mlflow
+    restart: unless-stopped
